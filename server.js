@@ -15,10 +15,10 @@ const io = new Server(server, {
 
 // Configuración de la conexión a MySQL (ajusta según tus credenciales)
 const pool = mysql.createPool({
-  host: 'TU_HOST',      
-  user: 'TU_USUARIO',
-  password: 'TU_CONTRASEÑA',
-  database: 'TU_BASE_DE_DATOS'
+  host: 'saluddata.com',      
+  user: 'urswlyl7ilhej',
+  password: 'kwcyhkxt4gtg',
+  database: 'dbsciqqs8ecauo'
 });
 
 // Eventos de Socket.IO
