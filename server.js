@@ -21,72 +21,126 @@ const pool = mysql.createPool({
   database: 'dbsciqqs8ecauo'
 });
 
-// Eventos de Socket.IO
+// Al conectar, el cliente envía tanto su id como su rol
+// Ejemplo: { user_id: 123, role: 'admin' }
 io.on('connection', (socket) => {
-  console.log(`Nuevo cliente conectado: ${socket.id}`);
-
-  // Unir al socket a una sala personal (ej: "user_123")
-  socket.on('join', (userId) => {
-    socket.join(`user_${userId}`);
-    console.log(`Usuario ${userId} se unió a la sala: user_${userId}`);
-
-    // Enviar todas las notificaciones del usuario al conectarse
-    const query = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC";
-    pool.query(query, [userId], (err, results) => {
-      if (err) {
-        console.error("Error al obtener las notificaciones:", err);
-        return;
+    console.log(`Nuevo cliente conectado: ${socket.id}`);
+  
+    // Evento para unir al socket a las salas de usuario y rol
+    socket.on('join', (userData) => {
+      const { user_id, role } = userData;
+      socket.join(`user_${user_id}`);
+      socket.join(`role_${role}`);
+      console.log(`Usuario ${user_id} (rol: ${role}) se unió a sus salas.`);
+  
+      // Consultar todas las notificaciones del usuario (individual y de rol)
+      const query = `
+        SELECT n.id, n.message, n.target_role, un.seen, n.created_at 
+        FROM notifications n 
+        JOIN user_notifications un ON n.id = un.notification_id 
+        WHERE un.user_id = ? 
+        ORDER BY n.created_at DESC
+      `;
+      pool.query(query, [user_id], (err, results) => {
+        if (err) {
+          console.error("Error al obtener notificaciones:", err);
+          return;
+        }
+        socket.emit('all-notifications', results);
+      });
+    });
+  
+    /**
+     * Evento para enviar una notificación.
+     * data debe tener:
+     * - message: El contenido.
+     * - target_type: 'user' o 'role'.
+     * - target_id: En caso 'user', el id del usuario; en caso 'role', el nombre del rol.
+     */
+    socket.on('send-notification', (data) => {
+      if (data.target_type === 'user') {
+        // Notificación individual
+        const queryNotif = "INSERT INTO notifications (message) VALUES (?)";
+        pool.query(queryNotif, [data.message], (err, notifResult) => {
+          if (err) {
+            console.error("Error al insertar notificación:", err);
+            return;
+          }
+          const notificationId = notifResult.insertId;
+          // Asocia la notificación al usuario
+          const queryUserNotif = "INSERT INTO user_notifications (notification_id, user_id) VALUES (?, ?)";
+          pool.query(queryUserNotif, [notificationId, data.target_id], (err, userNotifResult) => {
+            if (err) {
+              console.error("Error al asociar notificación al usuario:", err);
+              return;
+            }
+            // Enviar la notificación al socket del usuario
+            io.to(`user_${data.target_id}`).emit('notificacion', { 
+              id: notificationId, 
+              message: data.message, 
+              seen: 0, 
+              created_at: new Date() 
+            });
+          });
+        });
+      } else if (data.target_type === 'role') {
+        // Notificación por rol
+        const queryNotif = "INSERT INTO notifications (message, target_role) VALUES (?, ?)";
+        pool.query(queryNotif, [data.message, data.target_id], (err, notifResult) => {
+          if (err) {
+            console.error("Error al insertar notificación:", err);
+            return;
+          }
+          const notificationId = notifResult.insertId;
+          // Consultar todos los usuarios que tienen ese rol
+          const queryUsers = "SELECT id FROM users WHERE role = ?";
+          pool.query(queryUsers, [data.target_id], (err, users) => {
+            if (err) {
+              console.error("Error al obtener usuarios del rol:", err);
+              return;
+            }
+            // Para cada usuario, crear la asociación
+            users.forEach(user => {
+              const queryUserNotif = "INSERT INTO user_notifications (notification_id, user_id) VALUES (?, ?)";
+              pool.query(queryUserNotif, [notificationId, user.id], (err, result) => {
+                if (err) {
+                  console.error("Error al asociar notificación al usuario:", err);
+                }
+              });
+            });
+            // Emitir la notificación a la sala del rol
+            io.to(`role_${data.target_id}`).emit('notificacion', { 
+              id: notificationId, 
+              message: data.message, 
+              seen: 0, 
+              created_at: new Date() 
+            });
+          });
+        });
       }
-      socket.emit('all-notifications', results);
+    });
+  
+    // Evento para marcar una notificación como vista (individual)
+    socket.on('notification-viewed', (data) => {
+      // data: { notification_id, user_id }
+      const query = "UPDATE user_notifications SET seen = 1 WHERE notification_id = ? AND user_id = ?";
+      pool.query(query, [data.notification_id, data.user_id], (err, results) => {
+        if (err) {
+          console.error("Error al actualizar notificación:", err);
+          return;
+        }
+        console.log(`Notificación ${data.notification_id} marcada como vista para el usuario ${data.user_id}`);
+        socket.emit('notification-updated', { notification_id: data.notification_id, seen: 1 });
+      });
+    });
+  
+    socket.on('disconnect', () => {
+      console.log(`Cliente desconectado: ${socket.id}`);
     });
   });
-
-  // Recibir y almacenar una notificación
-  socket.on('new-notification', (data) => {
-    // data debe incluir: { user_id, message }
-    console.log(`Datos recibidos del cliente ${socket.id}:`, data);
-
-    const query = "INSERT INTO notifications (user_id, message) VALUES (?, ?)";
-    pool.query(query, [data.user_id, data.message], (err, results) => {
-      if (err) {
-        console.error("Error al insertar la notificación:", err);
-        return;
-      }
-      const notification = {
-        id: results.insertId,
-        message: data.message,
-        user_id: data.user_id,
-        seen: 0, // 0: no vista
-        created_at: new Date()
-      };
-
-      // Enviar la notificación solo al usuario correspondiente
-      io.to(`user_${data.user_id}`).emit('notificacion', notification);
-      console.log("Notificación enviada a la sala:", `user_${data.user_id}`);
-    });
+  
+  // Puerto
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
   });
-
-  // Marcar notificación como vista
-  socket.on('notification-viewed', (data) => {
-    // data debe incluir: { notification_id, user_id }
-    const query = "UPDATE notifications SET seen = 1 WHERE id = ? AND user_id = ?";
-    pool.query(query, [data.notification_id, data.user_id], (err, results) => {
-      if (err) {
-        console.error("Error al actualizar la notificación:", err);
-        return;
-      }
-      console.log(`Notificación ${data.notification_id} marcada como vista para el usuario ${data.user_id}`);
-      socket.emit('notification-updated', { notification_id: data.notification_id, seen: 1 });
-    });
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
-  });
-});
-
-// Puerto definido por Railway o 3000 por defecto
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
