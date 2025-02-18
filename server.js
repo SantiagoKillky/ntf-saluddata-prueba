@@ -15,10 +15,10 @@ const io = new Server(server, {
 
 // Configuración de la conexión a MySQL (ajusta según tus credenciales)
 const pool = mysql.createPool({
-  host: 'saluddata.com',      
-  user: 'urswlyl7ilhej',
-  password: 'kwcyhkxt4gtg',
-  database: 'dbsciqqs8ecauo'
+  host: 'localhost',      
+  user: 'root',
+  password: 'Santiago30',
+  database: 'notificaciones_db'
 });
 
 // Al conectar, el cliente envía tanto su id como su rol
