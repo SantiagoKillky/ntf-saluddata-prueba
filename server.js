@@ -16,9 +16,9 @@ const io = new Server(server, {
 // Configuración de la conexión a MySQL (ajusta según tus credenciales)
 const pool = mysql.createPool({
   host: 'localhost',
-  user: 'killky_testing',
-  password: 'hXMOcawe4OeH8u!l',
-  database: 'killky_saluddatav2'
+  user: 'root',
+  password: 'Santiago30',
+  database: 'notificaciones_db'
 });
 
 // Al conectar, el cliente envía tanto su id como su rol
