@@ -35,9 +35,9 @@ io.on('connection', (socket) => {
   
       // Consultar todas las notificaciones del usuario (individual y de rol)
       const query = `
-        SELECT n.id, n.message, n.target_role, un.seen, n.created_at 
+        SELECT n.id_notifications, n.message, n.idrole , un.seen, n.created_at 
         FROM notifications n 
-        JOIN user_notifications un ON n.id = un.notification_id 
+        JOIN user_notifications un ON n.id_notifications = un.id_notification 
         WHERE un.user_id = ? 
         ORDER BY n.created_at DESC
       `;
@@ -68,7 +68,7 @@ io.on('connection', (socket) => {
           }
           const notificationId = notifResult.insertId;
           // Asocia la notificación al usuario
-          const queryUserNotif = "INSERT INTO user_notifications (notification_id, user_id) VALUES (?, ?)";
+          const queryUserNotif = "INSERT INTO user_notifications (id_notification, user_id) VALUES (?, ?)";
           pool.query(queryUserNotif, [notificationId, data.target_id], (err, userNotifResult) => {
             if (err) {
               console.error("Error al asociar notificación al usuario:", err);
@@ -85,7 +85,7 @@ io.on('connection', (socket) => {
         });
       } else if (data.target_type === 'role') {
         // Notificación por rol
-        const queryNotif = "INSERT INTO notifications (message, target_role) VALUES (?, ?)";
+        const queryNotif = "INSERT INTO notifications (message, idrole) VALUES (?, ?)";
         pool.query(queryNotif, [data.message, data.target_id], (err, notifResult) => {
           if (err) {
             console.error("Error al insertar notificación:", err);
@@ -93,7 +93,7 @@ io.on('connection', (socket) => {
           }
           const notificationId = notifResult.insertId;
           // Consultar todos los usuarios que tienen ese rol
-          const queryUsers = "SELECT id FROM users WHERE role = ?";
+          const queryUsers = "SELECT id FROM users WHERE idrole = ?";
           pool.query(queryUsers, [data.target_id], (err, users) => {
             if (err) {
               console.error("Error al obtener usuarios del rol:", err);
@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
             }
             // Para cada usuario, crear la asociación
             users.forEach(user => {
-              const queryUserNotif = "INSERT INTO user_notifications (notification_id, user_id) VALUES (?, ?)";
+              const queryUserNotif = "INSERT INTO user_notifications (id_notification, user_id) VALUES (?, ?)";
               pool.query(queryUserNotif, [notificationId, user.id], (err, result) => {
                 if (err) {
                   console.error("Error al asociar notificación al usuario:", err);
@@ -123,7 +123,7 @@ io.on('connection', (socket) => {
     // Evento para marcar una notificación como vista (individual)
     socket.on('notification-viewed', (data) => {
       // data: { notification_id, user_id }
-      const query = "UPDATE user_notifications SET seen = 1 WHERE notification_id = ? AND user_id = ?";
+      const query = "UPDATE user_notifications SET seen = 1 WHERE id_notification = ? AND user_id = ?";
       pool.query(query, [data.notification_id, data.user_id], (err, results) => {
         if (err) {
           console.error("Error al actualizar notificación:", err);
