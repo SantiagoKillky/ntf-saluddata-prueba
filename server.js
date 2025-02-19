@@ -15,7 +15,7 @@ const io = new Server(server, {
 
 // Configuración de la conexión a MySQL (ajusta según tus credenciales)
 const pool = mysql.createPool({
-  host: '127.0.0.1',      
+  host: 'localhost',
   user: 'root',
   password: 'Santiago30',
   database: 'notificaciones_db'
