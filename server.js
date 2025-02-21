@@ -61,7 +61,7 @@ io.on('connection', (socket) => {
         //user_id
       }, { headers: { 'Content-Type': 'application/json' }});
       
-      //socket.emit('all-notifications', response.data);
+      socket.emit('all-notifications', response.data.notifications.data);
       console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
 
     } catch (error) {
