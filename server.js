@@ -57,8 +57,8 @@ io.on('connection', (socket) => {
     try {
       const response = await axios.post(externalAPI, {
         mode: 'select_notifications',
-        //project_id,
-        //user_id
+        project_id,
+        user_id
       }, { headers: { 'Content-Type': 'application/json' }});
       
       socket.emit('all-notifications', response.data.notifications.data);
