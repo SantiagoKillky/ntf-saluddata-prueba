@@ -2,208 +2,167 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const mysql = require('mysql2');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*", // En producción, restringe los orígenes permitidos
-    methods: ["GET", "POST"]
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
+
+// Middleware para parsear JSON en las peticiones
+app.use(express.json());
+
+// URL de la API externa que maneja el CRUD de notificaciones
+const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/notifications/controller/notifications.controller.php';
+
+/**
+ * Endpoint HTTP que actúa como proxy para la API externa.
+ * Aquí se puede enviar peticiones desde el cliente si se requiere.
+ */
+app.post('/notifications', async (req, res) => {
+  try {
+    const response = await axios.post(externalAPI, req.body, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error en /notifications:', error);
+    res.status(500).json({ error: 'Error al procesar la solicitud de notificaciones' });
   }
 });
 
-// Configuración de la conexión a MySQL (ajusta según tus credenciales)
-const pool = mysql.createPool({
-  host: 'hostcloudpe.lat',
-  user: 'killky_testing',
-  password: 'hXMOcawe4OeH8u!l',
-  database: 'killky_saluddatav2' 
-});
-
-// Cuando un cliente se conecta
+/**
+ * Socket.IO: Manejo de la comunicación en tiempo real.
+ */
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
 
   /**
    * Evento 'join':
-   * El cliente envía su información: { user_id, role }
+   * El cliente debe enviar un objeto con { project_id, user_id }.
    * Se une a dos salas:
-   * - 'user_{user_id}' para notificaciones individuales.
-   * - 'role_{role}' para notificaciones por rol.
-   * Además, se envía el historial de notificaciones del usuario.
+   * - "project_{project_id}" para notificaciones relacionadas al proyecto.
+   * - "user_{user_id}" para notificaciones individuales del usuario.
+   * Además, se consulta el historial de notificaciones para ese usuario y proyecto.
    */
-  socket.on('join', (userData) => {
-    const { user_id, role } = userData;
+  socket.on('join', async (data) => {
+    const { project_id, user_id } = data;
+    socket.join(`project_${project_id}`);
     socket.join(`user_${user_id}`);
-    socket.join(`role_${role}`);
-    console.log(`Usuario ${user_id} (rol: ${role}) se ha unido a sus salas.`);
+    console.log(`Usuario ${user_id} se unió al proyecto ${project_id}.`);
 
-    // Consulta las notificaciones asociadas a este usuario
-    const query = `
-      SELECT n.id_notifications, n.message, n.target_type, n.target_role, un.seen, n.created_at, n.updated_at
-      FROM notifications n
-      INNER JOIN user_notifications un ON n.id_notifications = un.id_notifications
-      WHERE un.id_users = ?
-      ORDER BY n.created_at DESC
-    `;
-    pool.query(query, [user_id], (err, results) => {
-      if (err) {
-        console.error("Error consultando notificaciones:", err);
-        return;
-      }
-      socket.emit('all-notifications', results);
-    });
-  });
-
-  /**
-   * Evento 'send-notification':
-   * data debe tener la siguiente estructura:
-   * {
-   *   target_type: 'user' | 'role' | 'all',
-   *   target_id: <ID del usuario o del rol>, // para 'all' puede ser null o ignorado
-   *   message: 'Contenido del mensaje'
-   * }
-   */
-  socket.on('send-notification', (data) => {
-    if (data.target_type === 'user') {
-      // Notificación individual
-      const queryNotif = `
-        INSERT INTO notifications (message, target_type) VALUES (?, ?)
-      `;
-      pool.query(queryNotif, [data.message, 'user'], (err, notifResult) => {
-        if (err) {
-          console.error("Error al insertar notificación individual:", err);
-          return;
-        }
-        const notificationId = notifResult.insertId;
-        // Insertar en la tabla de asociación para el usuario destino
-        const queryUserNotif = `
-          INSERT INTO user_notifications (id_notifications, id_users) VALUES (?, ?)
-        `;
-        pool.query(queryUserNotif, [notificationId, data.target_id], (err, result) => {
-          if (err) {
-            console.error("Error al asociar notificación al usuario:", err);
-            return;
-          }
-          // Emitir a la sala del usuario
-          io.to(`user_${data.target_id}`).emit('notificacion', {
-            id_notifications: notificationId,
-            message: data.message,
-            target_type: 'user',
-            seen: 0,
-            created_at: new Date()
-          });
-        });
-      });
-    } else if (data.target_type === 'role') {
-      // Notificación para un rol
-      const queryNotif = `
-        INSERT INTO notifications (message, target_type, target_role) VALUES (?, ?, ?)
-      `;
-      pool.query(queryNotif, [data.message, 'role', data.target_id], (err, notifResult) => {
-        if (err) {
-          console.error("Error al insertar notificación por rol:", err);
-          return;
-        }
-        const notificationId = notifResult.insertId;
-        // Se consultan los usuarios que pertenezcan a ese rol.
-        const queryUsers = "SELECT id_users FROM users WHERE idrole = ?";
-        pool.query(queryUsers, [data.target_id], (err, users) => {
-          if (err) {
-            console.error("Error al obtener usuarios para el rol:", err);
-            return;
-          }
-          // Para cada usuario se inserta la asociación
-          users.forEach(user => {
-            const queryUserNotif = `
-              INSERT INTO user_notifications (id_notifications, id_users) VALUES (?, ?)
-            `;
-            pool.query(queryUserNotif, [notificationId, user.id_users], (err, result) => {
-              if (err) {
-                console.error("Error asociando notificación a usuario:", err);
-              }
-            });
-          });
-          // Emitir la notificación a la sala del rol
-          io.to(`role_${data.target_id}`).emit('notificacion', {
-            id_notifications: notificationId,
-            message: data.message,
-            target_type: 'role',
-            seen: 0,
-            created_at: new Date()
-          });
-        });
-      });
-    } else if (data.target_type === 'all') {
-      // Notificación para todos los usuarios
-      const queryNotif = `
-        INSERT INTO notifications (message, target_type) VALUES (?, ?)
-      `;
-      pool.query(queryNotif, [data.message, 'all'], (err, notifResult) => {
-        if (err) {
-          console.error("Error al insertar notificación para todos:", err);
-          return;
-        }
-        const notificationId = notifResult.insertId;
-        // Se consultan todos los usuarios
-        const queryUsers = "SELECT id_users FROM users";
-        pool.query(queryUsers, (err, users) => {
-          if (err) {
-            console.error("Error al obtener todos los usuarios:", err);
-            return;
-          }
-          // Insertar la asociación para cada usuario
-          users.forEach(user => {
-            const queryUserNotif = `
-              INSERT INTO user_notifications (id_notifications, id_users) VALUES (?, ?)
-            `;
-            pool.query(queryUserNotif, [notificationId, user.id_users], (err, result) => {
-              if (err) {
-                console.error("Error asociando notificación a usuario:", err);
-              }
-            });
-          });
-          // Emitir la notificación a todos los conectados
-          io.emit('notificacion', {
-            id_notifications: notificationId,
-            message: data.message,
-            target_type: 'all',
-            seen: 0,
-            created_at: new Date()
-          });
-        });
-      });
+    try {
+      const response = await axios.post(externalAPI, {
+        mode: 'select_notifications',
+        project_id,
+        user_id
+      }, { headers: { 'Content-Type': 'application/json' }});
+      
+      //socket.emit('all-notifications', response.data);
+      console.log(`response.data = ${response.data}.`);
+    } catch (error) {
+      console.error('Error al cargar notificaciones en join:', error);
     }
   });
 
   /**
-   * Evento 'notification-viewed':
-   * Permite que un usuario marque como vista una notificación.
-   * data: { id_notifications, id_users }
+   * Evento 'send-notification':
+   * El cliente debe enviar un objeto con, al menos, { project_id, user_id, message, type_notif, title_notif, name_project }.
+   * Opcionalmente, puede enviar fecha_vencimiento.
+   * Se utiliza el modo "insert_notifications" para insertar la notificación.
    */
-  socket.on('notification-viewed', (data) => {
-    const query = `
-      UPDATE user_notifications 
-      SET seen = 1, updated_at = CURRENT_TIMESTAMP 
-      WHERE id_notifications = ? AND id_users = ?
-    `;
-    pool.query(query, [data.id_notifications, data.id_users], (err, results) => {
-      if (err) {
-        console.error("Error al actualizar la notificación:", err);
-        return;
-      }
-      console.log(`Notificación ${data.id_notifications} marcada como vista para el usuario ${data.id_users}`);
-      socket.emit('notification-updated', { id_notifications: data.id_notifications, seen: 1 });
-    });
-  });
+  /*
+  socket.on('send-notification', async (data) => {
+    try {
+      const response = await axios.post(externalAPI, {
+        mode: 'insert_notifications',
+        project_id: data.project_id,
+        user_id: data.user_id,
+        type_notif: data.type_notif,       // Por ejemplo: "info", "warning", etc.
+        mensaje_notif: data.message,        // Contenido de la notificación.
+        title_notif: data.title_notif,        // Título de la notificación.
+        name_project: data.name_project,      // Nombre del proyecto.
+        fecha_vencimiento: data.fecha_vencimiento || null // Fecha de caducación (si aplica).
+      }, { headers: { 'Content-Type': 'application/json' }});
+      
+      // Se asume que la API retorna la notificación creada en response.data.notification
+      const notification = response.data.notification;
+      // Emitir la notificación a la sala del proyecto y del usuario
+      io.to(`project_${data.project_id}`).emit('notificacion', notification);
+      io.to(`user_${data.user_id}`).emit('notificacion', notification);
+    } catch (error) {
+      console.error('Error enviando notificación:', error);
+    }
+  });*/
+
+  /**
+   * Evento 'notification-viewed':
+   * Permite marcar una notificación como vista.
+   * Se espera recibir { project_id, user_id, idnotifications }.
+   * Se utiliza el modo "update_notifications" y se actualiza el campo "seen" a 1.
+   */
+  /*socket.on('notification-viewed', async (data) => {
+    try {
+      const response = await axios.post(externalAPI, {
+        mode: 'update_notifications',
+        project_id: data.project_id,
+        user_id: data.user_id,
+        idnotifications: data.idnotifications,
+        seen: 1  // Marcamos la notificación como vista.
+      }, { headers: { 'Content-Type': 'application/json' }});
+      
+      // Se puede emitir la notificación actualizada al usuario
+      socket.emit('notification-updated', response.data.notification);
+    } catch (error) {
+      console.error('Error actualizando notificación:', error);
+    }
+  });*/
+
+  /**
+   * Evento 'delete-notification':
+   * Permite eliminar una notificación.
+   * Se espera recibir { project_id, user_id, idnotifications }.
+   * Se utiliza el modo "delete_notifications".
+   */
+  /*
+  socket.on('delete-notification', async (data) => {
+    try {
+      const response = await axios.post(externalAPI, {
+        mode: 'delete_notifications',
+        project_id: data.project_id,
+        user_id: data.user_id,
+        idnotifications: data.idnotifications
+      }, { headers: { 'Content-Type': 'application/json' }});
+      
+      socket.emit('notification-deleted', response.data);
+    } catch (error) {
+      console.error('Error eliminando notificación:', error);
+    }
+  });*/
+
+  /**
+   * Evento 'describe-notifications':
+   * Permite obtener la descripción o estructura de las notificaciones.
+   */
+  /*
+  socket.on('describe-notifications', async () => {
+    try {
+      const response = await axios.post(externalAPI, {
+        mode: 'describe_notifications'
+      }, { headers: { 'Content-Type': 'application/json' }});
+      socket.emit('notifications-described', response.data);
+    } catch (error) {
+      console.error('Error describiendo notificaciones:', error);
+    }
+  });*/
 
   socket.on('disconnect', () => {
     console.log(`Cliente desconectado: ${socket.id}`);
   });
 });
 
-// Iniciar el servidor en el puerto configurado por Railway o 3000 por defecto
+// Inicia el servidor en el puerto configurado o el 3000 por defecto.
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
