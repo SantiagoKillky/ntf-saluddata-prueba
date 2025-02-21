@@ -62,7 +62,8 @@ io.on('connection', (socket) => {
       }, { headers: { 'Content-Type': 'application/json' }});
       
       //socket.emit('all-notifications', response.data);
-      console.log(`response.data = ${response.data.notifications.data}.`);
+      console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
+
     } catch (error) {
       console.error('Error al cargar notificaciones en join:', error);
     }
