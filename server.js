@@ -38,6 +38,8 @@ app.post('/notifications', async (req, res) => {
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
 
+
+  
   /**
    * Evento 'join':
    * El cliente debe enviar un objeto con { project_id, user_id }.
@@ -55,12 +57,12 @@ io.on('connection', (socket) => {
     try {
       const response = await axios.post(externalAPI, {
         mode: 'select_notifications',
-        project_id,
-        user_id
+        //project_id,
+        //user_id
       }, { headers: { 'Content-Type': 'application/json' }});
       
       //socket.emit('all-notifications', response.data);
-      console.log(`response.data = ${response.data}.`);
+      console.log(`response.data = ${response.data.notifications.data}.`);
     } catch (error) {
       console.error('Error al cargar notificaciones en join:', error);
     }
