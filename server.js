@@ -12,12 +12,17 @@ const io = new Server(server, {
 
 const dayjs = require('dayjs');
 const relativeTime = require('dayjs/plugin/relativeTime');
-require('dayjs/locale/es'); // Importa la localización en español
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 
 dayjs.extend(relativeTime);
-dayjs.locale('es'); // Configura el locale a español
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
+dayjs.locale('es'); // Configura el idioma a español
 
+// Si deseas establecer una zona horaria por defecto (opcional)
+dayjs.tz.setDefault("America/Lima");
 
 // Middleware para parsear JSON en las peticiones
 app.use(express.json());
@@ -69,11 +74,13 @@ io.on('connection', (socket) => {
             user_id, idproject
         }, { headers: { 'Content-Type': 'application/json' }});
 
-        // Procesar cada notificación para convertir created_at a formato relativo
+        // Convertir created_at a la hora de Lima y formatearlo en tiempo relativo
         const notifications = response.data.notifications.data.map(notification => {
           return {
             ...notification,
-            created_at: dayjs(notification.created_at).fromNow() // Ej.: "hace 5 minutos"
+            created_at: dayjs(notification.created_at)
+                    .tz("America/Lima")
+                    .fromNow() // Ej.: "hace 5 minutos"
           };
         });
 
