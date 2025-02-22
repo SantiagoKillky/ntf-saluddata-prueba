@@ -12,8 +12,11 @@ const io = new Server(server, {
 
 const dayjs = require('dayjs');
 const relativeTime = require('dayjs/plugin/relativeTime');
+require('dayjs/locale/es'); // Importa la localización en español
+
 dayjs.extend(relativeTime);
-dayjs.locale('es'); // Establece el idioma a español
+dayjs.locale('es'); // Configura el locale a español
+
 
 
 // Middleware para parsear JSON en las peticiones
