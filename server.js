@@ -10,6 +10,12 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
+const dayjs = require('dayjs');
+const relativeTime = require('dayjs/plugin/relativeTime');
+dayjs.extend(relativeTime);
+dayjs.locale('es'); // Establece el idioma a español
+
+
 // Middleware para parsear JSON en las peticiones
 app.use(express.json());
 
@@ -60,10 +66,18 @@ io.on('connection', (socket) => {
             user_id, idproject
         }, { headers: { 'Content-Type': 'application/json' }});
 
+        // Procesar cada notificación para convertir created_at a formato relativo
+        const notifications = response.data.notifications.data.map(notification => {
+          return {
+            ...notification,
+            created_at: dayjs(notification.created_at).fromNow() // Ej.: "hace 5 minutos"
+          };
+        });
+
         // Emitir solo a la sala del usuario específico
-        io.to(`user_${user_id}`).emit('all-notifications', response.data.notifications.data);
+        io.to(`user_${user_id}`).emit('all-notifications', notifications);
         
-        console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
+        console.log(`response.data = ${JSON.stringify(notifications)}`);
 
     } catch (error) {
         console.error('Error al cargar notificaciones en join:', error);
