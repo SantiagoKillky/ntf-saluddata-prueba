@@ -61,9 +61,9 @@ io.on('connection', (socket) => {
         }, { headers: { 'Content-Type': 'application/json' }});
 
         // Emitir solo a la sala del usuario específico
-        io.to(`user_${user_id}`).emit('all-notifications', response.data.notifications.data);
+        io.to(`user_${user_id}`).emit('all-notifications', response.data.users_notifications.data);
         
-        console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
+        console.log(`response.data = ${JSON.stringify(response.data.users_notifications.data)}`);
 
     } catch (error) {
         console.error('Error al cargar notificaciones en join:', error);
