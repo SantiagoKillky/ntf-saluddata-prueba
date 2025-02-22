@@ -11,11 +11,20 @@ const io = new Server(server, {
 });
 
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const relativeTime = require('dayjs/plugin/relativeTime');
-require('dayjs/locale/es'); // Importa la localización en español
 
+// Importa la localización en español
+require('dayjs/locale/es');
+
+// Extiende dayjs con los plugins necesarios
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.extend(relativeTime);
-dayjs.locale('es'); // Configura el locale a español
+
+// Configura el idioma en español
+dayjs.locale('es');
 
 
 
@@ -73,7 +82,9 @@ io.on('connection', (socket) => {
         const notifications = response.data.notifications.data.map(notification => {
           return {
             ...notification,
-            created_at: dayjs(notification.created_at).fromNow() // Ej.: "hace 5 minutos"
+            created_at: dayjs(notification.created_at)
+            .tz("America/Lima") // Ajusta la hora a la zona horaria de Perú
+            .fromNow()    
           };
         });
 
