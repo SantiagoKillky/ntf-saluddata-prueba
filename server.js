@@ -14,7 +14,7 @@ const io = new Server(server, {
 app.use(express.json());
 
 // URL de la API externa que maneja el CRUD de notificaciones
-const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/notifications/controller/notifications.controller.php';
+const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
 
 /**
  * Endpoint HTTP que actúa como proxy para la API externa.
@@ -37,8 +37,6 @@ app.post('/notifications', async (req, res) => {
  */
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
-
-
   
   /**
    * Evento 'join':
@@ -50,24 +48,28 @@ io.on('connection', (socket) => {
    */
   socket.on('join', async (data) => {
     const { project_id, user_id } = data;
+    
+    // Unir al usuario a las salas correspondientes
     socket.join(`project_${project_id}`);
     socket.join(`user_${user_id}`);
     console.log(`Usuario ${user_id} se unió al proyecto ${project_id}.`);
 
     try {
-      const response = await axios.post(externalAPI, {
-        mode: 'select_notifications',
-        project_id,
-        user_id
-      }, { headers: { 'Content-Type': 'application/json' }});
-      
-      socket.emit('all-notifications', response.data.notifications.data);
-      console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
+        const response = await axios.post(externalAPI, {
+            mode: 'select_users_notifications',
+            user_id,
+        }, { headers: { 'Content-Type': 'application/json' }});
+
+        // Emitir solo a la sala del usuario específico
+        io.to(`user_${user_id}`).emit('all-notifications', response.data.notifications.data);
+        
+        console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
 
     } catch (error) {
-      console.error('Error al cargar notificaciones en join:', error);
+        console.error('Error al cargar notificaciones en join:', error);
     }
-  });
+});
+
 
   /**
    * Evento 'send-notification':
