@@ -14,7 +14,7 @@ const io = new Server(server, {
 app.use(express.json());
 
 // URL de la API externa que maneja el CRUD de notificaciones
-const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
+const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/notifications/controller/notifications.controller.php';
 
 /**
  * Endpoint HTTP que actúa como proxy para la API externa.
@@ -47,23 +47,23 @@ io.on('connection', (socket) => {
    * Además, se consulta el historial de notificaciones para ese usuario y proyecto.
    */
   socket.on('join', async (data) => {
-    const { project_id, user_id } = data;
+    const { idproject, user_id } = data;
     
     // Unir al usuario a las salas correspondientes
-    socket.join(`project_${project_id}`);
+    socket.join(`project_${idproject}`);
     socket.join(`user_${user_id}`);
-    console.log(`Usuario ${user_id} se unió al proyecto ${project_id}.`);
+    console.log(`Usuario ${user_id} se unió al proyecto ${idproject}.`);
 
     try {
         const response = await axios.post(externalAPI, {
             mode: 'select_users_notifications',
-            user_id,
+            user_id, idproject
         }, { headers: { 'Content-Type': 'application/json' }});
 
         // Emitir solo a la sala del usuario específico
-        io.to(`user_${user_id}`).emit('all-notifications', response.data.users_notifications.data);
+        io.to(`user_${user_id}`).emit('all-notifications', response.data.notifications.data);
         
-        console.log(`response.data = ${JSON.stringify(response.data.users_notifications.data)}`);
+        console.log(`response.data = ${JSON.stringify(response.data.notifications.data)}`);
 
     } catch (error) {
         console.error('Error al cargar notificaciones en join:', error);
