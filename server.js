@@ -56,7 +56,7 @@ io.on('connection', (socket) => {
 
     try {
         const response = await axios.post(externalAPI, {
-            mode: 'select_users_notifications',
+            mode: 'select_notifications_project',
             user_id, idproject
         }, { headers: { 'Content-Type': 'application/json' }});
 
