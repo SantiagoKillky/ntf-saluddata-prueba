@@ -82,9 +82,9 @@ io.on('connection', (socket) => {
         const notifications = response.data.notifications.data.map(notification => {
           return {
             ...notification,
-            created_at: dayjs(notification.created_at)
-            .tz("America/Lima") // Ajusta la hora a la zona horaria de Perú
-            .fromNow()    
+            created_at: dayjs
+            .tz(notification.created_at, "YYYY-MM-DD HH:mm:ss", "America/Lima")
+            .fromNow()           
           };
         });
 
