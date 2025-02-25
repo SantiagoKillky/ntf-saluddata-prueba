@@ -18,15 +18,10 @@ const relativeTime = require('dayjs/plugin/relativeTime');
 // Importa la localización en español
 require('dayjs/locale/es');
 
-// Extiende dayjs con los plugins necesarios
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(relativeTime);
-
-// Configura el idioma en español
 dayjs.locale('es');
-
-
 
 // Middleware para parsear JSON en las peticiones
 app.use(express.json());
@@ -36,7 +31,6 @@ const externalAPI = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/notificat
 
 /**
  * Endpoint HTTP que actúa como proxy para la API externa.
- * Aquí se puede enviar peticiones desde el cliente si se requiere.
  */
 app.post('/notifications', async (req, res) => {
   try {
@@ -51,147 +45,107 @@ app.post('/notifications', async (req, res) => {
 });
 
 /**
+ * Función helper para obtener las notificaciones de un proyecto y usuario.
+ */
+async function getNotifications({ idproject, user_id, seen = 0 }) {
+  try {
+    const response = await axios.post(externalAPI, {
+      mode: 'select_notifications_project_users',
+      seen,
+      user_id,
+      idproject
+    }, { headers: { 'Content-Type': 'application/json' }});
+
+    const notifications = response.data.notifications.data.map(notification => ({
+      ...notification,
+      created_at: dayjs
+        .tz(notification.created_at, "YYYY-MM-DD HH:mm:ss", "America/Lima")
+        .fromNow()
+    }));
+
+    return notifications;
+  } catch (error) {
+    console.error('Error al obtener notificaciones:', error);
+    return [];
+  }
+}
+
+/**
  * Socket.IO: Manejo de la comunicación en tiempo real.
  */
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
-  
+
   /**
    * Evento 'join':
-   * El cliente debe enviar un objeto con { project_id, user_id }.
-   * Se une a dos salas:
-   * - "project_{project_id}" para notificaciones relacionadas al proyecto.
-   * - "user_{user_id}" para notificaciones individuales del usuario.
-   * Además, se consulta el historial de notificaciones para ese usuario y proyecto.
+   * El cliente se une a las salas de proyecto y usuario.
+   * Luego se obtiene y emite el historial de notificaciones.
    */
   socket.on('join', async (data) => {
     const { idproject, user_id } = data;
-    
-    // Unir al usuario a las salas correspondientes
     socket.join(`project_${idproject}`);
     socket.join(`user_${user_id}`);
     console.log(`Usuario ${user_id} se unió al proyecto ${idproject}.`);
 
-    try {
-        const response = await axios.post(externalAPI, {
-            mode: 'select_notifications_project_users',
-            user_id, idproject
-        }, { headers: { 'Content-Type': 'application/json' }});
-
-        // Procesar cada notificación para convertir created_at a formato relativo
-        const notifications = response.data.notifications.data.map(notification => {
-          return {
-            ...notification,
-            created_at: dayjs
-            .tz(notification.created_at, "YYYY-MM-DD HH:mm:ss", "America/Lima")
-            .fromNow()           
-          };
-        });
-
-        // Emitir solo a la sala del usuario específico
-        io.to(`user_${user_id}`).emit('all-notifications', notifications);
-        
-        console.log(`response.data = ${JSON.stringify(notifications)}`);
-
-    } catch (error) {
-        console.error('Error al cargar notificaciones en join:', error);
-    }
-});
-
-
-  /**
-   * Evento 'send-notification':
-   * El cliente debe enviar un objeto con, al menos, { project_id, user_id, message, type_notif, title_notif, name_project }.
-   * Opcionalmente, puede enviar fecha_vencimiento.
-   * Se utiliza el modo "insert_notifications" para insertar la notificación.
-   */
-  /*
-  socket.on('send-notification', async (data) => {
-    try {
-      const response = await axios.post(externalAPI, {
-        mode: 'insert_notifications',
-        project_id: data.project_id,
-        user_id: data.user_id,
-        type_notif: data.type_notif,       // Por ejemplo: "info", "warning", etc.
-        mensaje_notif: data.message,        // Contenido de la notificación.
-        title_notif: data.title_notif,        // Título de la notificación.
-        name_project: data.name_project,      // Nombre del proyecto.
-        fecha_vencimiento: data.fecha_vencimiento || null // Fecha de caducación (si aplica).
-      }, { headers: { 'Content-Type': 'application/json' }});
-      
-      // Se asume que la API retorna la notificación creada en response.data.notification
-      const notification = response.data.notification;
-      // Emitir la notificación a la sala del proyecto y del usuario
-      io.to(`project_${data.project_id}`).emit('notificacion', notification);
-      io.to(`user_${data.user_id}`).emit('notificacion', notification);
-    } catch (error) {
-      console.error('Error enviando notificación:', error);
-    }
-  });*/
+    const notifications = await getNotifications({ idproject, user_id });
+    io.to(`user_${user_id}`).emit('all-notifications', notifications);
+    console.log(`Notificaciones enviadas a usuario ${user_id}: ${JSON.stringify(notifications)}`);
+  });
 
   /**
    * Evento 'notification-viewed':
-   * Permite marcar una notificación como vista.
-   * Se espera recibir { project_id, user_id, idnotifications }.
-   * Se utiliza el modo "update_notifications" y se actualiza el campo "seen" a 1.
+   * Se espera recibir { idnotifications, user_id, idproject }.
+   * Se marca la notificación como vista y se envía la lista actualizada.
    */
-  /*socket.on('notification-viewed', async (data) => {
+  socket.on('notification-viewed', async (data) => {
+    const { idnotifications, user_id, idproject } = data;
     try {
-      const response = await axios.post(externalAPI, {
+      await axios.post(externalAPI, {
         mode: 'update_notifications',
-        project_id: data.project_id,
-        user_id: data.user_id,
-        idnotifications: data.idnotifications,
-        seen: 1  // Marcamos la notificación como vista.
+        idnotifications,
+        seen: 1 // Marcamos la notificación como vista.
       }, { headers: { 'Content-Type': 'application/json' }});
-      
-      // Se puede emitir la notificación actualizada al usuario
-      socket.emit('notification-updated', response.data.notification);
+
+      // Obtener la lista actualizada de notificaciones
+      const notifications = await getNotifications({ idproject, user_id });
+      io.to(`user_${user_id}`).emit('all-notifications', notifications);
+      console.log(`Notificación ${idnotifications} marcada como vista. Lista actualizada enviada a usuario ${user_id}.`);
     } catch (error) {
       console.error('Error actualizando notificación:', error);
     }
-  });*/
+  });
 
   /**
-   * Evento 'delete-notification':
-   * Permite eliminar una notificación.
-   * Se espera recibir { project_id, user_id, idnotifications }.
-   * Se utiliza el modo "delete_notifications".
+   * Evento 'send-notification':
+   * Se espera recibir un objeto con { project_id, user_id, type_notif, message, title_notif, name_project, [fecha_vencimiento] }.
+   * Se inserta la nueva notificación y se emite la lista actualizada a las salas correspondientes.
    */
-  /*
-  socket.on('delete-notification', async (data) => {
+  socket.on('send-notification', async (data) => {
     try {
-      const response = await axios.post(externalAPI, {
-        mode: 'delete_notifications',
+      await axios.post(externalAPI, {
+        mode: 'insert_notifications',
         project_id: data.project_id,
         user_id: data.user_id,
-        idnotifications: data.idnotifications
+        type_notif: data.type_notif,
+        mensaje_notif: data.message,
+        title_notif: data.title_notif,
+        name_project: data.name_project,
+        fecha_vencimiento: data.fecha_vencimiento || null
       }, { headers: { 'Content-Type': 'application/json' }});
-      
-      socket.emit('notification-deleted', response.data);
-    } catch (error) {
-      console.error('Error eliminando notificación:', error);
-    }
-  });*/
 
-  /**
-   * Evento 'describe-notifications':
-   * Permite obtener la descripción o estructura de las notificaciones.
-   */
-  /*
-  socket.on('describe-notifications', async () => {
-    try {
-      const response = await axios.post(externalAPI, {
-        mode: 'describe_notifications'
-      }, { headers: { 'Content-Type': 'application/json' }});
-      socket.emit('notifications-described', response.data);
+      // Obtener la lista actualizada de notificaciones
+      const notifications = await getNotifications({ idproject: data.project_id, user_id: data.user_id });
+      // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
+      io.to(`project_${data.project_id}`).emit('all-notifications', notifications);
+      io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
+      console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.project_id}.`);
     } catch (error) {
-      console.error('Error describiendo notificaciones:', error);
+      console.error('Error enviando notificación:', error);
     }
-  });*/
+  });
 
   socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
+    console.log(`Cliente desconectado: ${socket.id}. ¡Hasta la próxima conexión!`);
   });
 });
 
