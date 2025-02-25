@@ -100,12 +100,16 @@ io.on('connection', (socket) => {
   socket.on('notification-viewed', async (data) => {
     const { idnotifications, user_id, idproject } = data;
     try {
-      await axios.post(externalAPI, {
-        mode: 'update_notifications',
-        idnotifications,
-        seen: 1 // Marcamos la notificación como vista.
-      }, { headers: { 'Content-Type': 'application/json' }});
-
+      await axios.post(
+        'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php',
+        {
+          mode: 'update_users_notifications',
+          idnotifications,
+          seen: 1 // Marcamos la notificación como vista.
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+  
       // Obtener la lista actualizada de notificaciones
       const notifications = await getNotifications({ idproject, user_id });
       io.to(`user_${user_id}`).emit('all-notifications', notifications);
