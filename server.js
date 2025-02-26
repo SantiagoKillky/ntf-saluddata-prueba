@@ -50,7 +50,7 @@ app.post('/notifications', async (req, res) => {
 async function getNotifications({ idproject, user_id, seen = 0 }) {
   try {
     const response = await axios.post(externalAPI, {
-      mode: 'select_notifications_project_users',
+      mode: 'select_all_notifications_project',
       seen,
       user_id,
       idproject
