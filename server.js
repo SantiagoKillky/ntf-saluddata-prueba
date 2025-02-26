@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
   socket.on('send-notification', async (data) => {
 
       // Obtener la lista actualizada de notificaciones
-      const notifications = await getNotifications({ idproject: data.idproject, user_id: user_id });
+      const notifications = await getNotifications({ idproject: data.idproject, user_id });
       // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
       io.to(`project_${data.idproject}`).emit('all-notifications', notifications);
       //io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
