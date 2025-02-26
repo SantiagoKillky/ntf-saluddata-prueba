@@ -125,26 +125,14 @@ io.on('connection', (socket) => {
    * Se inserta la nueva notificación y se emite la lista actualizada a las salas correspondientes.
    */
   socket.on('send-notification', async (data) => {
-    try {
-      await axios.post(externalAPI, {
-        mode: 'insert_notifications',
-        idproject: data.idproject,
-        user_id: data.user_id, // 0: Global
-        type_ntf: data.type_ntf,
-        message: data.message,
-        title_ntf: data.title_ntf,
-        date_expired: data.date_expired
-      }, { headers: { 'Content-Type': 'application/json' }});
 
       // Obtener la lista actualizada de notificaciones
-      const notifications = await getNotifications({ idproject: data.idproject, user_id: data.user_id });
+      const notifications = await getNotifications({ idproject: data.idproject, user_id: user_id });
       // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
       io.to(`project_${data.idproject}`).emit('all-notifications', notifications);
       //io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
       console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.idproject}.`);
-    } catch (error) {
-      console.error('Error enviando notificación:', error);
-    }
+
   });
 
   socket.on('disconnect', () => {
