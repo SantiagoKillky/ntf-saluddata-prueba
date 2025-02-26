@@ -98,13 +98,13 @@ io.on('connection', (socket) => {
    * Se marca la notificación como vista y se envía la lista actualizada.
    */
   socket.on('notification-viewed', async (data) => {
-    const { idnotifications, user_id, idproject } = data;
+    const { iduser_notifications, idnotifications, user_id, idproject } = data;
     try {
       await axios.post(
         'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php',
         {
           mode: 'update_users_notifications',
-          idnotifications, user_id,
+          iduser_notifications, idnotifications, user_id,
           seen: 1 // Marcamos la notificación como vista.
         },
         { headers: { 'Content-Type': 'application/json' } }
