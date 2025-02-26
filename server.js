@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
         idproject: data.idproject,
         user_id: data.user_id, // 0: Global
         type_ntf: data.type_ntf,
-        mensaje_notif: data.message,
+        message: data.message,
         title_ntf: data.title_ntf,
         date_expired: data.date_expired
       }, { headers: { 'Content-Type': 'application/json' }});
