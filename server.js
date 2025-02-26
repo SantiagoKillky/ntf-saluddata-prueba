@@ -129,12 +129,11 @@ io.on('connection', (socket) => {
       await axios.post(externalAPI, {
         mode: 'insert_notifications',
         idproject: data.idproject,
-        user_id: data.user_id,
+        user_id: data.user_id, // 0: Global
         type_ntf: data.type_ntf,
         mensaje_notif: data.message,
         title_ntf: data.title_ntf,
-        name_project: data.name_project,
-        date_expired: data.date_expired || null
+        date_expired: data.date_expired
       }, { headers: { 'Content-Type': 'application/json' }});
 
       // Obtener la lista actualizada de notificaciones
