@@ -112,7 +112,7 @@ io.on('connection', (socket) => {
   
       // Obtener la lista actualizada de notificaciones
       const notifications = await getNotifications({ idproject, user_id });
-      io.to(`project_${idproject}`).emit('all-notifications', notifications);
+      io.to(`user_${user_id}`).emit('all-notifications', notifications);
       console.log(`Notificación ${idnotifications} marcada como vista. Lista actualizada enviada a usuario ${user_id}.`);
     } catch (error) {
       console.error('Error actualizando notificación:', error);
@@ -141,7 +141,7 @@ io.on('connection', (socket) => {
       const notifications = await getNotifications({ idproject: data.idproject, user_id: data.user_id });
       // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
       io.to(`project_${data.idproject}`).emit('all-notifications', notifications);
-      io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
+      //io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
       console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.idproject}.`);
     } catch (error) {
       console.error('Error enviando notificación:', error);
