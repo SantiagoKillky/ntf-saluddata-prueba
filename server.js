@@ -104,7 +104,7 @@ io.on('connection', (socket) => {
         'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php',
         {
           mode: 'update_users_notifications',
-          idnotifications,
+          idnotifications, user_id, idproject,
           seen: 1 // Marcamos la notificación como vista.
         },
         { headers: { 'Content-Type': 'application/json' } }
@@ -112,7 +112,7 @@ io.on('connection', (socket) => {
   
       // Obtener la lista actualizada de notificaciones
       const notifications = await getNotifications({ idproject, user_id });
-      io.to(`user_${user_id}`).emit('all-notifications', notifications);
+      io.to(`project_${idproject}`).emit('all-notifications', notifications);
       console.log(`Notificación ${idnotifications} marcada como vista. Lista actualizada enviada a usuario ${user_id}.`);
     } catch (error) {
       console.error('Error actualizando notificación:', error);
@@ -121,28 +121,28 @@ io.on('connection', (socket) => {
 
   /**
    * Evento 'send-notification':
-   * Se espera recibir un objeto con { project_id, user_id, type_notif, message, title_notif, name_project, [fecha_vencimiento] }.
+   * Se espera recibir un objeto con { idproject, user_id, type_ntf, message, title_ntf, name_project, [date_expired] }.
    * Se inserta la nueva notificación y se emite la lista actualizada a las salas correspondientes.
    */
   socket.on('send-notification', async (data) => {
     try {
       await axios.post(externalAPI, {
         mode: 'insert_notifications',
-        project_id: data.project_id,
+        idproject: data.idproject,
         user_id: data.user_id,
-        type_notif: data.type_notif,
+        type_ntf: data.type_ntf,
         mensaje_notif: data.message,
-        title_notif: data.title_notif,
+        title_ntf: data.title_ntf,
         name_project: data.name_project,
-        fecha_vencimiento: data.fecha_vencimiento || null
+        date_expired: data.date_expired || null
       }, { headers: { 'Content-Type': 'application/json' }});
 
       // Obtener la lista actualizada de notificaciones
-      const notifications = await getNotifications({ idproject: data.project_id, user_id: data.user_id });
+      const notifications = await getNotifications({ idproject: data.idproject, user_id: data.user_id });
       // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
-      io.to(`project_${data.project_id}`).emit('all-notifications', notifications);
+      io.to(`project_${data.idproject}`).emit('all-notifications', notifications);
       io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
-      console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.project_id}.`);
+      console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.idproject}.`);
     } catch (error) {
       console.error('Error enviando notificación:', error);
     }
