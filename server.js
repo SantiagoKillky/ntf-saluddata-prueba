@@ -99,14 +99,14 @@ io.on('connection', (socket) => {
    */
   socket.on('notification-viewed', async (data) => {
     // Validamos que recibimos los datos mínimos necesarios.
-    const { iduser_notifications, idnotifications, user_id, idproject } = data;
+    const { idusers_notifications, idnotifications, user_id, idproject } = data;
     if (!user_id || !idnotifications) {
       console.error('Datos insuficientes para actualizar la notificación.');
       return;
     }
   
-    // Determinamos el modo de operación según la presencia de iduser_notifications.
-    const mode = iduser_notifications ? 'update_users_notifications' : 'insert_users_notifications';
+    // Determinamos el modo de operación según la presencia de idusers_notifications.
+    const mode = idusers_notifications ? 'update_users_notifications' : 'insert_users_notifications';
     const endpoint = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
   
     try {
@@ -115,7 +115,7 @@ io.on('connection', (socket) => {
         endpoint,
         {
           mode,
-          iduser_notifications,
+          idusers_notifications,
           idnotifications,
           user_id,
           seen: 1 // Marcamos la notificación como vista.
