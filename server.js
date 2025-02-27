@@ -104,7 +104,7 @@ io.on('connection', (socket) => {
         'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php',
         {
           mode: 'update_users_notifications',
-          iduser_notifications, idnotifications, user_id,
+          iduser_notifications,
           seen: 1 // Marcamos la notificación como vista.
         },
         { headers: { 'Content-Type': 'application/json' } }
