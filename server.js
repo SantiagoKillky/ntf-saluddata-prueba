@@ -98,20 +98,38 @@ io.on('connection', (socket) => {
    * Se marca la notificación como vista y se envía la lista actualizada.
    */
   socket.on('notification-viewed', async (data) => {
+    // Validamos que recibimos los datos mínimos necesarios.
     const { iduser_notifications, idnotifications, user_id, idproject } = data;
-    const mode = (iduser_notifications) ? 'update_users_notifications' : 'insert_users_notifications'
+    if (!user_id || !idnotifications) {
+      console.error('Datos insuficientes para actualizar la notificación.');
+      return;
+    }
+  
+    // Determinamos el modo de operación según la presencia de iduser_notifications.
+    const mode = iduser_notifications ? 'update_users_notifications' : 'insert_users_notifications';
+    const endpoint = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
+  
     try {
-      await axios.post(
-        'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php',
+      // Ejecutamos la petición al endpoint y almacenamos la respuesta.
+      const response = await axios.post(
+        endpoint,
         {
-          mode: mode,
-          iduser_notifications, idnotifications, user_id,
+          mode,
+          iduser_notifications,
+          idnotifications,
+          user_id,
           seen: 1 // Marcamos la notificación como vista.
         },
         { headers: { 'Content-Type': 'application/json' } }
       );
   
-      // Obtener la lista actualizada de notificaciones
+      // Verificamos que el endpoint respondió correctamente.
+      if (response.status !== 200 || (response.data && response.data.error)) {
+        console.error('Error en la respuesta del endpoint:', response.data);
+        return;
+      }
+  
+      // Obtenemos la lista actualizada de notificaciones.
       const notifications = await getNotifications({ idproject, user_id });
       io.to(`user_${user_id}`).emit('all-notifications', notifications);
       console.log(`Notificación ${idnotifications} marcada como vista. Lista actualizada enviada a usuario ${user_id}.`);
@@ -119,6 +137,7 @@ io.on('connection', (socket) => {
       console.error('Error actualizando notificación:', error);
     }
   });
+  
 
   /**
    * Evento 'send-notification':
