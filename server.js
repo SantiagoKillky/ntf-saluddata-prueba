@@ -58,7 +58,7 @@ async function getNotifications({ idproject, user_id, seen = 0 }) {
 
     const notifications = response.data.notifications.data.map(notification => ({
       ...notification,
-      created_at: dayjs
+      time_relative: dayjs
         .tz(notification.created_at, "YYYY-MM-DD HH:mm:ss", "America/Lima")
         .fromNow()
     }));
