@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
 
     const notifications = await getNotifications({ idproject, user_id });
     io.to(`user_${user_id}`).emit('all-notifications', notifications);
-    console.log(`Notificaciones enviadas a usuario ${user_id}: ${JSON.stringify(notifications)}`);
+    //console.log(`Notificaciones enviadas a usuario ${user_id}: ${JSON.stringify(notifications)}`);
   });
 
   /**
@@ -156,7 +156,7 @@ io.on('connection', (socket) => {
       // Emitir la lista actualizada tanto a la sala del proyecto como a la del usuario
       io.to(`project_${data.idproject}`).emit('all-notifications', notifications);
       //io.to(`user_${data.user_id}`).emit('all-notifications', notifications);
-      console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.idproject}.`);
+      //console.log(`Notificación añadida y lista actualizada enviada a usuario ${data.user_id} y proyecto ${data.idproject}.`);
 
   });
 
