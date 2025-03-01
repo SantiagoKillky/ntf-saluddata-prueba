@@ -104,9 +104,14 @@ io.on('connection', (socket) => {
       console.error('Datos insuficientes para actualizar la notificación.');
       return;
     }
+
+    if (idusers_notifications = null) {
+      console.error('Esto es una notificación Global. Se mantendra como no vista hasta su fecha de vencimiento');
+      return;
+    }
   
     // Determinamos el modo de operación según la presencia de idusers_notifications.
-    const mode = idusers_notifications ? 'update_users_notifications' : 'insert_users_notifications';
+    const mode = 'update_users_notifications';
     const endpoint = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
   
     try {
@@ -114,7 +119,7 @@ io.on('connection', (socket) => {
       const response = await axios.post(
         endpoint,
         {
-          mode,
+          update_users_notifications,
           idusers_notifications,
           idnotifications,
           user_id,
