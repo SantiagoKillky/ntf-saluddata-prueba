@@ -111,7 +111,6 @@ io.on('connection', (socket) => {
     }
   
     // Determinamos el modo de operación según la presencia de idusers_notifications.
-    const mode = 'update_users_notifications';
     const endpoint = 'https://dev.hostcloudpe.lat/adminkillky/v3/module/users_notifications/controller/users_notifications.controller.php';
   
     try {
@@ -119,7 +118,7 @@ io.on('connection', (socket) => {
       const response = await axios.post(
         endpoint,
         {
-          update_users_notifications,
+          mode: 'update_users_notifications',
           idusers_notifications,
           idnotifications,
           user_id,
